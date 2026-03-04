@@ -1,4 +1,5 @@
 import { Transaction } from '../utils/types';
+import { formatINR } from '../utils/currency';
 
 interface Props {
   transactions: Transaction[];
@@ -26,7 +27,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }: Pro
               <td className="p-2">{new Date(tx.date).toLocaleDateString()}</td>
               <td className="p-2 capitalize">{tx.type}</td>
               <td className="p-2">{tx.category}</td>
-              <td className={`p-2 font-semibold ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>${tx.amount.toFixed(2)}</td>
+              <td className={`p-2 font-semibold ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>{formatINR(tx.amount)}</td>
               <td className="p-2">{tx.description}</td>
               <td className="p-2 space-x-2">
                 <button onClick={() => onEdit(tx)} className="text-indigo-500">Edit</button>

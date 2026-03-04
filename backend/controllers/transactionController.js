@@ -97,19 +97,41 @@ exports.deleteTransaction = async (req, res) => {
 exports.getAnalytics = async (req, res) => {
   try {
     const userObjectId = mongoose.Types.ObjectId.createFromHexString(req.userId);
+    const { range = 'all', startDate, endDate, category = '' } = req.query;
+
+    const now = new Date();
+    const dateFilter = {};
+
+    if (startDate) {
+      dateFilter.$gte = new Date(startDate);
+    } else if (range === '1m') {
+      const oneMonthAgo = new Date(now);
+      oneMonthAgo.setMonth(now.getMonth() - 1);
+      dateFilter.$gte = oneMonthAgo;
+    } else if (range === '2m') {
+      const twoMonthsAgo = new Date(now);
+      twoMonthsAgo.setMonth(now.getMonth() - 2);
+      dateFilter.$gte = twoMonthsAgo;
+    } else if (range === '1y') {
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      dateFilter.$gte = oneYearAgo;
+    }
+
+    if (endDate) {
+      dateFilter.$lte = new Date(endDate);
+    }
+
+    const baseMatch = { user: userObjectId };
+    if (Object.keys(dateFilter).length) baseMatch.date = dateFilter;
 
     const summary = await Transaction.aggregate([
-      { $match: { user: userObjectId } },
-      {
-        $group: {
-          _id: '$type',
-          total: { $sum: '$amount' }
-        }
-      }
+      { $match: baseMatch },
+      { $group: { _id: '$type', total: { $sum: '$amount' } } }
     ]);
 
     const monthly = await Transaction.aggregate([
-      { $match: { user: userObjectId } },
+      { $match: baseMatch },
       {
         $group: {
           _id: { year: { $year: '$date' }, month: { $month: '$date' } },
@@ -120,13 +142,48 @@ exports.getAnalytics = async (req, res) => {
       { $sort: { '_id.year': 1, '_id.month': 1 } }
     ]);
 
-    const category = await Transaction.aggregate([
-      { $match: { user: userObjectId, type: 'expense' } },
+    const categoryExpense = await Transaction.aggregate([
+      { $match: { ...baseMatch, type: 'expense' } },
       { $group: { _id: '$category', total: { $sum: '$amount' } } },
       { $sort: { total: -1 } }
     ]);
 
-    return res.json({ summary, monthly, category });
+    const categoryTotals = await Transaction.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: '$category',
+          income: { $sum: { $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0] } },
+          expense: { $sum: { $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0] } },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+
+    const trendMatch = { ...baseMatch };
+    if (category) trendMatch.category = category;
+
+    const categoryMonthlyTrend = await Transaction.aggregate([
+      { $match: trendMatch },
+      {
+        $group: {
+          _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+          amount: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    return res.json({
+      summary,
+      monthly,
+      category: categoryExpense,
+      categoryTotals,
+      categoryMonthlyTrend,
+      availableCategories: categoryTotals.map((item) => item._id),
+      selectedCategory: category
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to fetch analytics', error: error.message });
   }
