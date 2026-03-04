@@ -1,7 +1,27 @@
 import { useState } from 'react';
 import { Transaction } from '../utils/types';
 
-const categories = ['Food', 'Travel', 'Shopping', 'Bills', 'Health', 'Salary', 'Other'];
+const categories = [
+  'H Meal',
+  'UH Meal',
+  'H Snack',
+  'UH Snack',
+  'Clothes',
+  'Recharge',
+  'Snr Party',
+  'Travel',
+  'Laundry',
+  'Haircut',
+  'Outing',
+  'Travelling (food)',
+  'Miscellaneous',
+  'Charity',
+  'Grocery',
+  'Vivek',
+  'Papa'
+];
+
+const CUSTOM_CATEGORY_VALUE = '__custom__';
 
 interface Props {
   initial?: Partial<Transaction>;
@@ -10,13 +30,17 @@ interface Props {
 }
 
 export default function TransactionForm({ initial, onSubmit, onCancel }: Props) {
+  const initialCategory = initial?.category || categories[0];
+  const initialIsCustom = !categories.includes(initialCategory);
+
   const [form, setForm] = useState({
     amount: initial?.amount || 0,
-    category: initial?.category || 'Food',
+    category: initialIsCustom ? CUSTOM_CATEGORY_VALUE : initialCategory,
     type: initial?.type || 'expense',
     date: initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
     description: initial?.description || ''
   });
+  const [customCategory, setCustomCategory] = useState(initialIsCustom ? initialCategory : '');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,8 +49,16 @@ export default function TransactionForm({ initial, onSubmit, onCancel }: Props) 
       setError('Amount must be greater than 0');
       return;
     }
+
+    const finalCategory = form.category === CUSTOM_CATEGORY_VALUE ? customCategory.trim() : form.category;
+
+    if (!finalCategory) {
+      setError('Please select a category or create a new one');
+      return;
+    }
+
     setError('');
-    await onSubmit({ ...form, amount: Number(form.amount), date: form.date });
+    await onSubmit({ ...form, category: finalCategory, amount: Number(form.amount), date: form.date });
   };
 
   return (
@@ -36,7 +68,18 @@ export default function TransactionForm({ initial, onSubmit, onCancel }: Props) 
       <input className="w-full p-2 rounded bg-slate-100 dark:bg-slate-800" type="number" min="0" step="0.01" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required />
       <select className="w-full p-2 rounded bg-slate-100 dark:bg-slate-800" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
         {categories.map((cat) => <option key={cat}>{cat}</option>)}
+        <option value={CUSTOM_CATEGORY_VALUE}>+ Create new category</option>
       </select>
+      {form.category === CUSTOM_CATEGORY_VALUE && (
+        <input
+          className="w-full p-2 rounded bg-slate-100 dark:bg-slate-800"
+          type="text"
+          placeholder="Enter new category"
+          value={customCategory}
+          onChange={(e) => setCustomCategory(e.target.value)}
+          required
+        />
+      )}
       <select className="w-full p-2 rounded bg-slate-100 dark:bg-slate-800" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'income' | 'expense' })}>
         <option value="income">Income</option>
         <option value="expense">Expense</option>
