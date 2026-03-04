@@ -1,3 +1,5 @@
+import { formatINR } from '../utils/currency';
+
 interface SummaryCardsProps {
   income: number;
   expense: number;
@@ -17,7 +19,7 @@ export default function SummaryCards({ income, expense }: SummaryCardsProps) {
       {cards.map((card) => (
         <div key={card.label} className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
           <p className="text-sm text-slate-500">{card.label}</p>
-          <p className={`text-2xl font-bold ${card.color}`}>${card.value.toFixed(2)}</p>
+          <p className={`text-2xl font-bold ${card.color}`}>{formatINR(card.value)}</p>
         </div>
       ))}
     </div>
